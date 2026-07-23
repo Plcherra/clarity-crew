@@ -7,13 +7,24 @@ Run them from the `crew/` folder in PowerShell.
 > call the venv Python directly. If PowerShell blocks scripts, run once:
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
-## The 3 everyday commands
+## The everyday commands
 
 | Command | What it does | Edits files? | Cost |
 | --- | --- | --- | --- |
-| `.\review.ps1 <path>` | Read → find bugs → write report | No | Low |
+| `.\plan.ps1 [path]` | Read the project's docs + code → write a ranked **launch plan** | No | Med |
+| `.\review.ps1 <path>` | Read → find bugs → write review report | No | Low |
 | `.\apply.ps1 <path>` | Apply the fixes left in the report | **Yes** | Low |
 | `.\fix.ps1 <path>` | Review **and** apply in one shot | **Yes** | High |
+
+`plan.ps1` is step 1 of the Director Loop (Phase 1): it produces
+`reports/launch_plan.md` — ranked BUILD/FIX items, each with a plain-English
+summary and an approval-ready builder prompt. It never edits files.
+
+```powershell
+.\plan.ps1                                   # plan the whole repo
+.\plan.ps1 app\services                       # focus the code scan on one area
+.\plan.ps1 --repo C:\path\to\other-project    # plan a different project
+```
 
 `<path>` is **optional** and is just *where to focus* (to save tokens). Leave it
 off to scan the whole repo — the agents find the files themselves.
@@ -75,6 +86,7 @@ Raw form (what the scripts wrap), if you ever need it:
 
 | File | When | Contents |
 | --- | --- | --- |
+| `crew\reports\launch_plan.md` | every `plan.ps1` run | ranked BUILD/FIX items, each with a plain-English summary + approval-ready builder prompt |
 | `crew\reports\review_latest.md` | every run | the bugs + concrete fixes (this is the value); prune this before apply-only |
 | `crew\reports\fix_latest.md` | fix / apply-only | FIXED / APPLIED-UNVERIFIED / REVERTED / SKIPPED per issue, plus a **Ground truth** section (real edit count + `git diff --stat`) |
 | `crew\reports\*_<timestamp>.md` | every run | archived copies so you keep a history |

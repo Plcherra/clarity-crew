@@ -10,8 +10,48 @@ each piece. You direct; it plans, builds, explains, and checks.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the Director Loop, pluggable builder, BYOK.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased delivery (we are building **Phase 1: Planner**).
 
-The rest of this file documents the current **engine** (Phase 0): a CrewAI team
-that reviews a project and can optionally fix it.
+The rest of this file documents what runs today: the **Planner** (Phase 1) and
+the underlying **review engine** (Phase 0).
+
+---
+
+## Planner (Phase 1)
+
+The Planner is step 1 of the Director Loop. Point it at any project and it reads
+the project's **own docs + code** and writes a ranked, approval-ready launch plan
+to `reports/launch_plan.md`. It is **read-only — it never edits your files.**
+
+Three agents run in sequence (read-only tools only):
+
+1. **SpecReader** — auto-detects the project's spec (`README`, `docs/`, `plans/`,
+   requirement-like `*.md` via `find_spec_docs`) and distills the intended product
+   plus the project's own launch criteria.
+2. **CodeScanner** — scans the code and finds **BUILD** items (spec capabilities
+   that are missing / stubbed / half-wired) and **FIX** items (present-but-broken
+   code on real paths), each with `file:line` evidence it actually read.
+3. **PlanWriter** — writes the ranked plan: each item gets a plain-English summary
+   **and** a ready-to-run builder prompt (goal + acceptance criteria + constraints
+   + files/area + how to verify).
+
+```powershell
+.\plan.ps1                                   # plan the whole repo (cwd)
+.\plan.ps1 src                               # focus one folder/area
+.\plan.ps1 --repo C:\path\to\project         # plan another project
+.\plan.ps1 app\services --repo C:\path\to\project
+```
+
+| Flag | Meaning | Default |
+| --- | --- | --- |
+| *(scope path)* | optional folder to focus the code scan on | whole repo |
+| `--repo <path>` | target another project (defaults to cwd) | cwd |
+| `--dry-run` | print the config and exit, spend nothing | off |
+
+Output: `reports/launch_plan.md` (plus a timestamped archive). Set `PLANNER_MODEL`
+in `.env` to give the Planner a stronger reasoner than the reviewer's `MODEL`.
+
+> The plan describes **what to do next** — nothing in it has been built or
+> verified. That's the trust anchor: you review/edit/approve items, then (Phase 2)
+> a builder runs an approved item and returns a diff.
 
 ---
 
