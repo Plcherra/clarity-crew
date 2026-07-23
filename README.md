@@ -1,7 +1,24 @@
-# Clarity Review Crew
+# Clarity Crew
 
-A focused CrewAI team that **reviews** the Clarity codebase and can **optionally
-fix** it. It has two modes.
+Reads any software project, tells you in plain English what it needs to reach
+launch, and — with your approval — drives an AI coding agent to build and verify
+each piece. You direct; it plans, builds, explains, and checks.
+
+**Start here (north-star docs):**
+
+- [`docs/VISION.md`](docs/VISION.md) — what it is, who it's for, MVP, non-goals.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the Director Loop, pluggable builder, BYOK.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased delivery (we are building **Phase 1: Planner**).
+
+The rest of this file documents the current **engine** (Phase 0): a CrewAI team
+that reviews a project and can optionally fix it.
+
+---
+
+## Review engine (current)
+
+A focused CrewAI team that **reviews** a codebase and can **optionally fix** it.
+Point it at any project with `--repo` (defaults to the current folder). Two modes.
 
 **REVIEW mode (default — cheap, no file edits):**
 
