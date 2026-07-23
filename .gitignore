@@ -1,0 +1,8 @@
+.env
+.venv/
+venv/
+__pycache__/
+
+# Generated reports (many, per run) and logs
+reports/
+*.log
