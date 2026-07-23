@@ -7,7 +7,9 @@ outside the project. Paths are always resolved and checked against the root.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 from crewai.tools import tool
@@ -127,7 +129,7 @@ def list_directory(relative_path: str = ".") -> str:
     """List files and subfolders inside a directory of the Clarity repo.
 
     Input: a path relative to the repo root (use "." for the root, or e.g.
-    "services/rex-api/app/services"). Returns folders (with a trailing /) and
+    "src/app" or "app/services"). Returns folders (with a trailing /) and
     files. Noise directories like node_modules and .git are skipped.
     """
     try:
@@ -155,8 +157,8 @@ def read_file(relative_path: str) -> str:
     """Read the contents of a single text file inside the Clarity repo.
 
     Input: a file path relative to the repo root, e.g.
-    "services/rex-api/app/services/tiny_system_prompt.py". Output is truncated
-    if the file is very large so you get the important top portion.
+    "src/app/main.py". Output is truncated if the file is very large so you get
+    the important top portion.
     """
     try:
         target = _safe_resolve(relative_path)
@@ -429,57 +431,84 @@ def restore_file(relative_path: str) -> str:
     return f"Restored {relative_path} to its original contents."
 
 
-BACKEND_DIR = (REPO_ROOT / "services" / "rex-api").resolve()
+def _resolve_test_cwd() -> Path:
+    """Directory the tests run from. Defaults to the repo root.
 
-
-def _backend_python() -> str:
-    """Path to the backend's own venv Python (which has pytest + app deps).
-
-    The crew's venv does not have the backend dependencies, so tests must run
-    with the backend interpreter. Override with TEST_PYTHON.
+    Override with TEST_CWD for monorepos where imports/conftest need a specific
+    working dir (e.g. TEST_CWD=services/api). An out-of-repo override is ignored.
     """
-    override = os.environ.get("TEST_PYTHON")
+    override = os.environ.get("TEST_CWD", "").strip()
+    if override:
+        candidate = Path(override)
+        if not candidate.is_absolute():
+            candidate = REPO_ROOT / candidate
+        candidate = candidate.resolve()
+        if candidate == REPO_ROOT or REPO_ROOT in candidate.parents:
+            return candidate
+    return REPO_ROOT
+
+
+def _test_python(cwd: Path) -> str:
+    """Interpreter for the default pytest runner. Override with TEST_PYTHON.
+
+    Prefers a project `.venv` (in the test cwd, then the repo root) so tests run
+    with the target project's own dependencies; otherwise falls back to the
+    interpreter running this tool.
+    """
+    override = os.environ.get("TEST_PYTHON", "").strip()
     if override:
         return override
-    candidates = [
-        BACKEND_DIR / ".venv" / "Scripts" / "python.exe",  # Windows
-        BACKEND_DIR / ".venv" / "bin" / "python",           # posix
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return "python"  # last resort
+    for base in (cwd, REPO_ROOT):
+        for candidate in (
+            base / ".venv" / "Scripts" / "python.exe",  # Windows
+            base / ".venv" / "bin" / "python",           # posix
+        ):
+            if candidate.exists():
+                return str(candidate)
+    return sys.executable or "python"
 
 
 @tool("run_tests")
 def run_tests(test_target: str = "") -> str:
-    """Run pytest to verify a fix, then report pass/fail output.
+    """Run the project's tests (pytest by default) and report pass/fail output.
 
-    `test_target` is an optional path relative to the repo root pointing at the
-    tests to run (e.g. "services/rex-api/tests/test_open_thread_suggestion_flow.py"
-    or "services/rex-api/tests"). Backend tests run inside services/rex-api using
-    the backend's own Python environment. Returns pytest's summary output so you
-    can tell if the fix works.
+    `test_target` is an optional path (relative to the repo root) to the tests to
+    run — a file or directory (e.g. "tests" or "tests/test_api.py"). With no
+    target, the whole suite runs.
+
+    Project-agnostic and configurable via env vars (no assumptions about layout):
+      * TEST_COMMAND — a full custom test command (e.g. "npm test" or
+        "poetry run pytest"); the resolved target is appended. Use for non-pytest
+        projects.
+      * TEST_CWD — directory to run tests from, for monorepos where imports need a
+        specific working dir. Defaults to the repo root.
+      * TEST_PYTHON — interpreter for the default pytest runner.
+    Returns the runner's summary output so you can tell if the change works.
     """
     target = test_target.strip()
-    # Resolve the target against the REPO ROOT (not the crew cwd) so paths like
-    # "services/rex-api/tests" map correctly.
-    if not target:
-        cwd = BACKEND_DIR
-        pytest_arg = "tests"
-    else:
+    cwd = _resolve_test_cwd()
+
+    # Resolve + sandbox the target against the repo root, then express it relative
+    # to the run cwd where possible.
+    resolved_arg = ""
+    if target:
         abs_target = (REPO_ROOT / target).resolve()
         if REPO_ROOT not in abs_target.parents and abs_target != REPO_ROOT:
             return f"Test target '{target}' escapes the repository root."
         try:
-            # Backend tests run from services/rex-api for imports/conftest to work.
-            pytest_arg = abs_target.relative_to(BACKEND_DIR).as_posix()
-            cwd = BACKEND_DIR
+            resolved_arg = abs_target.relative_to(cwd).as_posix()
         except ValueError:
-            pytest_arg = abs_target.relative_to(REPO_ROOT).as_posix()
-            cwd = REPO_ROOT
+            resolved_arg = str(abs_target)
 
-    cmd = [_backend_python(), "-m", "pytest", "-q", pytest_arg]
+    custom = os.environ.get("TEST_COMMAND", "").strip()
+    if custom:
+        cmd = shlex.split(custom)
+        if resolved_arg:
+            cmd.append(resolved_arg)
+        runner = "tests"
+    else:
+        cmd = [_test_python(cwd), "-m", "pytest", "-q", resolved_arg or "."]
+        runner = "pytest"
 
     try:
         result = subprocess.run(
@@ -498,8 +527,8 @@ def run_tests(test_target: str = "") -> str:
         output = output[-MAX_READ_CHARS:]  # keep the tail (summary lives there)
     status = "PASSED" if result.returncode == 0 else "FAILED"
     return (
-        f"[pytest {status}] (exit {result.returncode})\n"
-        f"cwd={cwd}\ntarget={pytest_arg}\n\n{output}"
+        f"[{runner} {status}] (exit {result.returncode})\n"
+        f"cwd={cwd}\ncmd={' '.join(cmd)}\n\n{output}"
     )
 
 

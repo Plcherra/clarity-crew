@@ -20,30 +20,38 @@ Run them from the `crew/` folder in PowerShell.
 `reports/launch_plan.md` — ranked BUILD/FIX items, each with a plain-English
 summary and an approval-ready builder prompt. It never edits files.
 
+Tell it what you want with a **preset** or a **plain-English goal**:
+
 ```powershell
-.\plan.ps1                                   # plan the whole repo
-.\plan.ps1 app\services                       # focus the code scan on one area
-.\plan.ps1 --repo C:\path\to\other-project    # plan a different project
+.\plan.ps1                                            # launch-review (default) of the repo
+.\plan.ps1 app\services                               # focus the scan on one area
+.\plan.ps1 --preset find-bugs                         # hunt for bugs (via review engine)
+.\plan.ps1 --goal "let users reset their password"    # create-feature (asks if vague)
+.\plan.ps1 --repo C:\path\to\other-project            # plan a different project
 ```
+
+Presets: `launch-review` (default) · `find-bugs` · `create-feature`. A `--goal`
+implies `create-feature`; if the request is vague, the Planner asks clarifying
+questions interactively before planning.
 
 `<path>` is **optional** and is just *where to focus* (to save tokens). Leave it
 off to scan the whole repo — the agents find the files themselves.
 
 ```powershell
 .\review.ps1                                   # review the whole repo
-.\review.ps1 services/rex-api/app/services     # review one folder
+.\review.ps1 src/app     # review one folder
 ```
 
 ## Recommended daily flow (review → prune → apply)
 
 ```powershell
 # 1. Review the area you're about to work on (cheap, no edits)
-.\review.ps1 services/rex-api/app/services
+.\review.ps1 src/app
 
 # 2. Open crew\reports\review_latest.md — delete any fixes you DON'T want
 
 # 3. Apply only the fixes you kept (cheap — no re-analysis)
-.\apply.ps1 services/rex-api/app/services
+.\apply.ps1 src/app
 
 # 4. Review the real changes like a PR, keep or drop
 git diff
@@ -53,8 +61,8 @@ git checkout -- <file you don't want>
 ## One-shot (analyze + apply together)
 
 ```powershell
-.\fix.ps1 services/rex-api/app/services              # one pass
-.\fix.ps1 services/rex-api/app/services --rounds 3   # loop up to 3 passes
+.\fix.ps1 src/app              # one pass
+.\fix.ps1 src/app --rounds 3   # loop up to 3 passes
 ```
 
 ## Preview without spending anything
@@ -62,8 +70,8 @@ git checkout -- <file you don't want>
 Add `--dry-run` to any command to print what *would* run and exit (no tokens):
 
 ```powershell
-.\review.ps1 services/rex-api/app/services --dry-run
-.\fix.ps1 services/rex-api/app/services --dry-run
+.\review.ps1 src/app --dry-run
+.\fix.ps1 src/app --dry-run
 ```
 
 ## All flags (passed straight through to clarity_crew.py)

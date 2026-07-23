@@ -2,7 +2,7 @@
 # Review first, prune the report to what you want, then run this.
 #
 # Usage:
-#   .\apply.ps1 services/rex-api/app/services
+#   .\apply.ps1 src/app
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
 # The applier needs a strong model to iterate on test failures. Override in .env

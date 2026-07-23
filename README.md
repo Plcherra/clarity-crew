@@ -1,14 +1,16 @@
 # Clarity Crew
 
-Reads any software project, tells you in plain English what it needs to reach
-launch, and — with your approval — drives an AI coding agent to build and verify
-each piece. You direct; it plans, builds, explains, and checks.
+Build software by describing what you want in plain English. Clarity Crew reads your
+project, turns your request into a concrete plan, explains that plan back in plain
+language — and, once you approve, drives an AI coding agent to build and verify each
+piece, then explains what it did. You direct in plain English; it plans, explains,
+builds, and checks.
 
 **Start here (north-star docs):**
 
 - [`docs/VISION.md`](docs/VISION.md) — what it is, who it's for, MVP, non-goals.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the Director Loop, pluggable builder, BYOK.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased delivery (we are building **Phase 1: Planner**).
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased delivery (the **Planner is built**; the **Explainer** plain-English layer is next).
 
 The rest of this file documents what runs today: the **Planner** (Phase 1) and
 the underlying **review engine** (Phase 0).
@@ -17,41 +19,57 @@ the underlying **review engine** (Phase 0).
 
 ## Planner (Phase 1)
 
-The Planner is step 1 of the Director Loop. Point it at any project and it reads
-the project's **own docs + code** and writes a ranked, approval-ready launch plan
-to `reports/launch_plan.md`. It is **read-only — it never edits your files.**
+The Planner is step 1 of the Director Loop. You tell it what you want — a
+**plain-English request** or a **preset** — and it uses the project's **own docs +
+code** to write a ranked, approval-ready plan to `reports/launch_plan.md`. Planning
+is **read-only — it never edits your files.**
 
-Three agents run in sequence (read-only tools only):
+**Presets (what you want it to do):**
+
+- **`launch-review`** (default) — what does this project need to reach launch?
+- **`find-bugs`** — hunt for real bugs (delegates to the review engine below).
+- **`create-feature`** — deliver a plain-English request; if the request is vague it
+  **asks you clarifying questions first** (interactive), then plans it.
+
+Three planner agents run in sequence (read-only tools only):
 
 1. **SpecReader** — auto-detects the project's spec (`README`, `docs/`, `plans/`,
-   requirement-like `*.md` via `find_spec_docs`) and distills the intended product
-   plus the project's own launch criteria.
-2. **CodeScanner** — scans the code and finds **BUILD** items (spec capabilities
-   that are missing / stubbed / half-wired) and **FIX** items (present-but-broken
-   code on real paths), each with `file:line` evidence it actually read.
+   requirement-like `*.md` via `find_spec_docs`) to understand the app / place your
+   request.
+2. **CodeScanner** — scans the code for **BUILD** items (missing / stubbed / half-wired)
+   and **FIX** items (present-but-broken on real paths), each with `file:line` evidence.
 3. **PlanWriter** — writes the ranked plan: each item gets a plain-English summary
-   **and** a ready-to-run builder prompt (goal + acceptance criteria + constraints
-   + files/area + how to verify).
+   **and** a ready-to-run builder task (goal + acceptance criteria + constraints +
+   files/area + how to verify).
 
 ```powershell
-.\plan.ps1                                   # plan the whole repo (cwd)
-.\plan.ps1 src                               # focus one folder/area
-.\plan.ps1 --repo C:\path\to\project         # plan another project
-.\plan.ps1 app\services --repo C:\path\to\project
+.\plan.ps1                                            # launch review of the repo (cwd)
+.\plan.ps1 src                                        # focus the scan on one folder/area
+.\plan.ps1 --preset find-bugs                         # hunt for bugs (review engine)
+.\plan.ps1 --goal "let users reset their password"    # create-feature (asks if vague)
+.\plan.ps1 --preset create-feature --goal "..." --repo C:\path\to\project
 ```
 
 | Flag | Meaning | Default |
 | --- | --- | --- |
 | *(scope path)* | optional folder to focus the code scan on | whole repo |
+| `--goal "<text>"` | a plain-English request (implies `create-feature`) | — |
+| `--preset <name>` | `launch-review` \| `find-bugs` \| `create-feature` | `launch-review` (or `create-feature` if `--goal` given) |
 | `--repo <path>` | target another project (defaults to cwd) | cwd |
 | `--dry-run` | print the config and exit, spend nothing | off |
 
 Output: `reports/launch_plan.md` (plus a timestamped archive). Set `PLANNER_MODEL`
 in `.env` to give the Planner a stronger reasoner than the reviewer's `MODEL`.
 
-> The plan describes **what to do next** — nothing in it has been built or
-> verified. That's the trust anchor: you review/edit/approve items, then (Phase 2)
-> a builder runs an approved item and returns a diff.
+> The plan describes **what to do next** — nothing in it has been built or verified.
+> That's the trust anchor: you review/edit/approve items, then a builder (Phase 3)
+> runs an approved item and returns a diff.
+>
+> The Planner already takes a plain-English **`--goal`** or a **preset**
+> (`launch-review` / `find-bugs` / `create-feature`) and asks **clarifying questions**
+> when a request is vague. Coming next per the [roadmap](docs/ROADMAP.md): an
+> **Explainer** layer (Phase 2) that renders the plan in plain, concrete language so
+> you approve *that* — not raw prompts.
 
 ---
 
@@ -116,12 +134,12 @@ apply fixes you don't want:
 
 ```powershell
 # 1) REVIEW (default): read + find + suggest, NO edits. Cheap. Start here.
-python clarity_crew.py services/rex-api/app/services/capabilities
+python clarity_crew.py src/app
 
 # 2) Open crew/reports/review_latest.md and DELETE any fixes you don't want.
 
 # 3) APPLY-ONLY: apply just the fixes left in the report (no re-analysis = cheap).
-python clarity_crew.py services/rex-api/app/services/capabilities --apply-only
+python clarity_crew.py src/app --apply-only
 ```
 
 Or do it all in one shot (analyze + apply, one pass):

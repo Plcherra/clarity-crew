@@ -208,14 +208,15 @@ def build_tasks(
             "the Fix Applier everything it needs to act without guessing:\n"
             "- **Issue** (title + severity)\n"
             "- **File** (FULL path relative to the repo root, e.g. "
-            "`services/rex-api/app/services/capabilities/open_thread_title.py`) and line(s)\n"
+            "`src/app/module.py`) and line(s)\n"
             "- **What's wrong** (brief, with the exact code evidence)\n"
             "- **Fix** (precise steps: the exact old code to find and the new code to put "
             "in its place — a copy-pasteable sketch, not a whole-file rewrite)\n"
             "- **Verify with**: only for PYTHON fixes, the exact pytest path if a real test "
-            "exists (the applier can only run pytest). For Dart/Flutter/JS or when no test "
-            "exists, write 'manual verification — no automated test for this file' instead of "
-            "inventing a pytest path. NEVER point a non-Python fix at services/rex-api tests.\n"
+            "exists (the applier can only run pytest). For non-Python code (Dart/Flutter/JS/"
+            "etc.) or when no test exists, write 'manual verification — no automated test for "
+            "this file' instead of inventing a pytest path. NEVER point a non-Python fix at a "
+            "pytest path.\n"
         ),
         agent=fix_suggester,
         context=[read_task, bug_task],

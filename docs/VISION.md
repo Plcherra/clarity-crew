@@ -5,9 +5,11 @@
 
 ## One-liner
 
-Clarity Crew reads any software project, tells you in plain English what it needs
-to reach launch, and — with your approval — drives an AI coding agent to build and
-verify each piece. You direct; it plans, builds, explains, and checks.
+Clarity Crew lets you build software by describing what you want in plain English.
+It reads your project, turns your request into a concrete plan, explains that plan
+back to you in plain, concrete language — and, once you approve, drives an AI coding
+agent to build and verify each piece, then explains what it did and how your app now
+works. You direct in plain English; it plans, explains, builds, and checks.
 
 ## Who it's for
 
@@ -27,20 +29,36 @@ They don't need more raw coding speed (the AI already types fast). They need
 
 ## What it does — the Director Loop
 
-1. **Plan** — read the project's own docs + code, produce a ranked, plain-English
-   list of what to build/fix for launch, each as an approval-ready prompt.
-2. **Approve (human)** — you review, edit, and pick what runs. This is the trust anchor.
-3. **Build** — send the approved prompt to a pluggable builder (a built-in edit
-   loop, or the user's Cursor via the SDK) which writes the code.
-4. **Explain** — "you asked X · the AI did Y · result Z · what could break" in plain words.
-5. **Test** — run what can be verified; loop back on failure; mark done when green.
+You talk to it in plain English. **Explain runs throughout** — every time it shows
+you something (the plan, the build, the test), it's in plain, concrete language that
+teaches you your own app, never raw jargon and never vague.
+
+1. **Intent** — you type what you want ("I want the assistant to save memory while I
+   talk") or click a preset (launch-ready review · find bugs · create feature). If the
+   request is too vague, it **asks clarifying questions** before going further.
+2. **Plan** — it turns your intent + the project's own docs + code into a concrete plan
+   of what to build/fix, each an approval-ready task.
+3. **Explain the plan** — it renders that plan in plain, concrete, structural language,
+   so you understand what it proposes and why.
+4. **Approve (human)** — you review, edit, and pick what runs, on the plain-English
+   version. This is the trust anchor.
+5. **Build** — it sends an approved task to a pluggable builder (built-in edit loop by
+   default, or your own Cursor via the SDK) which writes the code.
+6. **Test** — it runs what can be verified; loops back on failure; marks done when
+   green, else clearly **unverified**.
+7. **Explain the result** — in plain words: what your app's relevant part looks like,
+   what it changed and why, and whether it's verified — tied back to what you asked.
 
 ## MVP (what "v1" must do)
 
-- Point at any local project (`--repo`) and produce a launch plan grounded in that
-  project's real docs + code — no hardcoded assumptions about any one app.
-- Draft approval-ready prompts for each plan item.
-- Apply an approved item through at least one builder and show a plain-English diff.
+- Take a **plain-English request** (or a preset) and, when it's vague, **ask
+  clarifying questions** before planning.
+- Point at any local project (`--repo`) and turn that request + the project's real
+  docs + code into a plan — no hardcoded assumptions about any one app.
+- **Explain the plan in plain, concrete, structural language**, and let you **approve
+  on that plain-English version** (edit or reject too).
+- Apply an approved item through at least one builder and show a plain-English account
+  of what changed.
 - Verify Python changes with tests; clearly mark everything else as *unverified*.
 - Bring-your-own-key for the model provider.
 
